@@ -7,7 +7,8 @@ __all__ = ("VedroCloudClient",)
 
 
 class VedroCloudClient:
-    def __init__(self, api_url: str, timeout: float) -> None:
+    def __init__(self, project_id: str, api_url: str, timeout: float) -> None:
+        self._project_id = project_id
         self._api_url = api_url
         self._timeout = timeout
 
@@ -18,10 +19,11 @@ class VedroCloudClient:
         return response.json()
 
     async def get_timings(self) -> Dict[str, Union[str, int]]:
-        url = f"{self._api_url}/v0.1/scenarios/slow"
-        scenarios = await self._do_request("GET", url)
+        url = f"{self._api_url}/v0.1/projects/{self._project_id}/scenarios"
+        params = {"order_by": "duration"}
+        scenarios = await self._do_request("GET", url, params=params)
         return {scenario["scenario_hash"]: scenario["median"] for scenario in scenarios}
 
     async def post_history(self, history: List[Dict[str, Any]]) -> None:
-        url = f"{self._api_url}/v0.1/history"
+        url = f"{self._api_url}/v0.1/projects/{self._project_id}/history"
         await self._do_request("POST", url, json=history)

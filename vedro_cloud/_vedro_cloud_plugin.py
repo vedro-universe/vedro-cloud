@@ -23,6 +23,7 @@ class VedroCloudPlugin(Plugin):
         super().__init__(config)
         self._api_url = config.api_url
         self._timeout = config.timeout
+        self._project_id = config.project_id
         self._results: List[Dict[str, Any]] = []
         self._client: Union[VedroCloudClient, None] = None
 
@@ -42,7 +43,7 @@ class VedroCloudPlugin(Plugin):
         pass
 
     def on_arg_parsed(self, event: ArgParsedEvent) -> None:
-        self._client = VedroCloudClient(self._api_url, self._timeout)
+        self._client = VedroCloudClient(self._project_id, self._api_url, self._timeout)
         self._global_config.Registry.ScenarioOrderer.register(
             lambda: OptimalOrderer(self._client),
             self
@@ -81,3 +82,6 @@ class VedroCloud(PluginConfig):
 
     # Timeout for requests
     timeout: float = 5.0
+
+    # Project ID
+    project_id: str = "default"
