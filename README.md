@@ -1,1 +1,1 @@
-# vedro-cloud
+# Vedro Cloud
