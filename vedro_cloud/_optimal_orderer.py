@@ -12,5 +12,9 @@ class OptimalOrderer(ScenarioOrderer):
         self._client = vedro_cloud_client
 
     async def sort(self, scenarios: List[VirtualScenario]) -> List[VirtualScenario]:
-        timings = await self._client.get_timings()
+        try:
+            timings = await self._client.get_timings()
+        except Exception as e:
+            print(f"Failed to retrieve timings: {e!r}")
+            timings = {}
         return sorted(scenarios, key=lambda scn: timings.get(scn.unique_hash, 0), reverse=True)

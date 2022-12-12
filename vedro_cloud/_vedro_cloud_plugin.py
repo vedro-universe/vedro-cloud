@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 from uuid import uuid4
 
 from vedro.core import ConfigType, Dispatcher, Plugin, PluginConfig
@@ -10,9 +10,11 @@ from vedro.events import (
     ScenarioFailedEvent,
     ScenarioPassedEvent,
     ScenarioSkippedEvent,
+    StartupEvent,
 )
 
 from ._optimal_orderer import OptimalOrderer
+from ._validate_config import validate_config_params
 from ._vedro_cloud_client import VedroCloudClient
 
 __all__ = ("VedroCloud", "VedroCloudPlugin",)
@@ -24,13 +26,16 @@ class VedroCloudPlugin(Plugin):
         self._api_url = config.api_url
         self._timeout = config.timeout
         self._project_id = config.project_id
-        self._results: List[Dict[str, Any]] = []
+        self._report_id = config.report_id
+        self._launch_id: Union[str, None] = None
         self._client: Union[VedroCloudClient, None] = None
+        self._results: List[Dict[str, Any]] = []
 
     def subscribe(self, dispatcher: Dispatcher) -> None:
         dispatcher.listen(ConfigLoadedEvent, self.on_config_loaded) \
             .listen(ArgParseEvent, self.on_arg_parse) \
             .listen(ArgParsedEvent, self.on_arg_parsed) \
+            .listen(StartupEvent, self.on_startup) \
             .listen(ScenarioSkippedEvent, self.on_scenario_end) \
             .listen(ScenarioPassedEvent, self.on_scenario_end) \
             .listen(ScenarioFailedEvent, self.on_scenario_end) \
@@ -43,11 +48,17 @@ class VedroCloudPlugin(Plugin):
         pass
 
     def on_arg_parsed(self, event: ArgParsedEvent) -> None:
+        if errors := validate_config_params(self._project_id, self._launch_id):
+            raise ValueError("\n - " + "\n - ".join(errors))
+
         self._client = VedroCloudClient(self._project_id, self._api_url, self._timeout)
         self._global_config.Registry.ScenarioOrderer.register(
             lambda: OptimalOrderer(self._client),
             self
         )
+
+    def on_startup(self, event: StartupEvent) -> None:
+        self._launch_id = str(uuid4())
 
     def on_scenario_end(self, event: Union[ScenarioPassedEvent, ScenarioFailedEvent,
                                            ScenarioSkippedEvent]) -> None:
@@ -55,10 +66,13 @@ class VedroCloudPlugin(Plugin):
         ended_at = event.scenario_result.ended_at or 0.0
         self._results.append({
             "id": str(uuid4()),
-            "scenario_id": event.scenario_result.scenario.unique_id,
+            "launch_id": self._launch_id,
+            "report_id": self._report_id,
+
             "scenario_hash": event.scenario_result.scenario.unique_hash,
             "scenario_path": str(event.scenario_result.scenario.rel_path),
             "scenario_subject": event.scenario_result.scenario.subject,
+
             "status": event.scenario_result.status.value,
             "started_at": round(started_at * 1000),
             "ended_at": round(ended_at * 1000),
@@ -85,3 +99,6 @@ class VedroCloud(PluginConfig):
 
     # Project ID
     project_id: str = "default"
+
+    # Report ID
+    report_id: Optional[str] = None

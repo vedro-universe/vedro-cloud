@@ -14,16 +14,22 @@ class VedroCloudClient:
 
     async def _do_request(self, method: str, url: str, **kwargs: Any) -> Any:
         async with AsyncClient() as client:
-            response = await client.request(method, url, **kwargs)
-            assert response.status_code == HTTPStatus.OK
-        return response.json()
+            resp = await client.request(method, url, **kwargs)
+            try:
+                body = resp.json()
+            except:  # noqa: E722
+                body = None
+            if (resp.status_code != HTTPStatus.OK) or (body is None):
+                raise ValueError(
+                    f"Invalid response from '{url}': {resp.status_code} {resp.read()!r}")
+        return body
 
     async def get_timings(self) -> Dict[str, Union[str, int]]:
-        url = f"{self._api_url}/v0.1/projects/{self._project_id}/scenarios"
+        url = f"{self._api_url}/v0.2/projects/{self._project_id}/scenarios"
         params = {"order_by": "duration"}
         scenarios = await self._do_request("GET", url, params=params)
         return {scenario["scenario_hash"]: scenario["median"] for scenario in scenarios}
 
     async def post_history(self, history: List[Dict[str, Any]]) -> None:
-        url = f"{self._api_url}/v0.1/projects/{self._project_id}/history"
+        url = f"{self._api_url}/v0.2/projects/{self._project_id}/history"
         await self._do_request("POST", url, json=history)
