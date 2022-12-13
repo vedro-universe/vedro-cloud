@@ -18,6 +18,7 @@ $ pip3 install vedro-cloud
 # ./vedro.cfg.py
 import vedro
 import vedro_cloud
+import vedro.plugins.slicer as slicer
 
 class Config(vedro.Config):
 
@@ -27,4 +28,7 @@ class Config(vedro.Config):
             enabled = True
             api_url = "http://localhost:8080"
             project_id = "test"
+
+        class Slicer(slicer.Slicer):
+            enabled = False
 ```

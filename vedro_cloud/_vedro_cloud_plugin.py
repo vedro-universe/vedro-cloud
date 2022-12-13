@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, TypedDict, Union
 from uuid import uuid4
 
 from vedro.core import ConfigType, Dispatcher, Plugin, PluginConfig
@@ -13,7 +13,7 @@ from vedro.events import (
     StartupEvent,
 )
 
-from ._optimal_orderer import OptimalOrderer
+from ._duration_orderer import DurationOrderer
 from ._validate_config import validate_config_params
 from ._vedro_cloud_client import VedroCloudClient
 
@@ -21,15 +21,34 @@ __all__ = ("VedroCloud", "VedroCloudPlugin",)
 
 
 class VedroCloudPlugin(Plugin):
-    def __init__(self, config: Type["VedroCloud"]) -> None:
+    def __init__(self, config: Type["VedroCloud"], *,
+                 client_factory: Any = VedroCloudClient) -> None:
         super().__init__(config)
         self._api_url = config.api_url
         self._timeout = config.timeout
         self._project_id = config.project_id
+        self._client = client_factory(self._project_id, self._api_url, self._timeout)
         self._report_id = config.report_id
         self._launch_id: Union[str, None] = None
-        self._client: Union[VedroCloudClient, None] = None
         self._results: List[Dict[str, Any]] = []
+        self._timings: Dict[str, int] = {}
+        self._total: Union[int, None] = None
+        self._index: Union[int, None] = None
+
+    async def _get_timings(self) -> Dict[str, int]:
+        try:
+            self._timings = await self._client.get_timings()
+        except Exception as e:
+            print(f"Failed to retrieve timings: {e!r}")
+            self._timings = {}
+        return self._timings
+
+    async def _post_history(self) -> None:
+        try:
+            await self._client.post_history(self._results)
+        except Exception as e:
+            print(f"Failed to send history: {e!r}")
+        self._results = []
 
     def subscribe(self, dispatcher: Dispatcher) -> None:
         dispatcher.listen(ConfigLoadedEvent, self.on_config_loaded) \
@@ -45,20 +64,53 @@ class VedroCloudPlugin(Plugin):
         self._global_config: ConfigType = event.config
 
     def on_arg_parse(self, event: ArgParseEvent) -> None:
-        pass
+        group = event.arg_parser.add_argument_group("Vedro Cloud")
+        group.add_argument("--slicer-total", type=int, help="Set total workers")
+        group.add_argument("--slicer-index", type=int, help="Set current worker")
 
     def on_arg_parsed(self, event: ArgParsedEvent) -> None:
-        if errors := validate_config_params(self._project_id, self._launch_id):
+        self._total = event.args.slicer_total
+        self._index = event.args.slicer_index
+        if self._total is not None:
+            assert self._index is not None
+            assert self._total > 0
+        if self._index is not None:
+            assert self._total is not None
+            assert 0 <= self._index < self._total
+
+        if errors := validate_config_params(self._project_id, self._report_id):
             raise ValueError("\n - " + "\n - ".join(errors))
 
-        self._client = VedroCloudClient(self._project_id, self._api_url, self._timeout)
-        self._global_config.Registry.ScenarioOrderer.register(
-            lambda: OptimalOrderer(self._client),
-            self
-        )
+        if (self._total is not None) and (self._report_id is None) and (self._total > 1):
+            raise ValueError("Report ID is required when total workers > 1")
 
-    def on_startup(self, event: StartupEvent) -> None:
+        self._global_config.Registry.ScenarioOrderer.register(
+            lambda: DurationOrderer(self._get_timings), self)
+
+    async def on_startup(self, event: StartupEvent) -> None:
         self._launch_id = str(uuid4())
+        if (self._total is None) or (self._index is None):
+            return
+
+        durations = []
+        async for scenario in event.scheduler:
+            duration = 0 if scenario.is_skipped() else self._timings.get(scenario.unique_hash, 0)
+            durations.append((duration, scenario.unique_hash))
+        durations.sort(reverse=True)
+
+        class SliceInfo(TypedDict):
+            sum: int
+            scenarios: Dict[str, int]
+
+        slices: List[SliceInfo] = [{"sum": 0, "scenarios": {}} for _ in range(self._total)]
+        for duration, scenario_hash in durations:
+            slice_index = min(range(self._total), key=lambda i: slices[i]["sum"])
+            slices[slice_index]["sum"] += duration
+            slices[slice_index]["scenarios"][scenario_hash] = duration
+
+        async for scenario in event.scheduler:
+            if scenario.unique_hash not in slices[self._index]["scenarios"]:
+                event.scheduler.ignore(scenario)
 
     def on_scenario_end(self, event: Union[ScenarioPassedEvent, ScenarioFailedEvent,
                                            ScenarioSkippedEvent]) -> None:
@@ -79,13 +131,7 @@ class VedroCloudPlugin(Plugin):
         })
 
     async def on_cleanup(self, event: CleanupEvent) -> None:
-        assert self._client is not None
-        try:
-            await self._client.post_history(self._results)
-        except Exception as e:
-            print(f"Failed to send history: {e!r}")
-        finally:
-            self._results = []
+        await self._post_history()
 
 
 class VedroCloud(PluginConfig):

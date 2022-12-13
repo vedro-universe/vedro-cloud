@@ -12,9 +12,9 @@ def validate_config_params(project_id: str, report_id: Union[str, None]) -> List
         errors.append(f"Invalid project_id: {project_id!r} does not match pattern "
                       f"{project_pattern.pattern!r}")
 
-    launch_pattern = re.compile(r".{1,40}")
-    if (report_id is not None) and (launch_pattern.match(report_id) is None):
+    report_pattern = re.compile(r".{1,40}")
+    if (report_id is not None) and (report_pattern.match(report_id) is None):
         errors.append(f"Invalid report_id: {report_id!r} does not match pattern "
-                      f"{launch_pattern.pattern!r}")
+                      f"{report_pattern.pattern!r}")
 
     return errors
