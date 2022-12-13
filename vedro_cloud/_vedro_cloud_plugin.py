@@ -104,7 +104,8 @@ class VedroCloudPlugin(Plugin):
 
         slices: List[SliceInfo] = [{"sum": 0, "scenarios": {}} for _ in range(self._total)]
         for duration, scenario_hash in durations:
-            slice_index = min(range(self._total), key=lambda i: slices[i]["sum"])
+            slice_index = min(range(self._total),
+                              key=lambda i: (slices[i]["sum"], len(slices[i]["scenarios"])))
             slices[slice_index]["sum"] += duration
             slices[slice_index]["scenarios"][scenario_hash] = duration
 
