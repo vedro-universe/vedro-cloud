@@ -117,14 +117,16 @@ class VedroCloudPlugin(Plugin):
                                            ScenarioSkippedEvent]) -> None:
         started_at = event.scenario_result.started_at or 0.0
         ended_at = event.scenario_result.ended_at or 0.0
+
         self._results.append({
             "id": str(uuid4()),
             "launch_id": self._launch_id,
             "report_id": self._report_id,
 
             "scenario_hash": event.scenario_result.scenario.unique_hash,
-            "scenario_path": str(event.scenario_result.scenario.rel_path),
+            "scenario_rel_path": str(event.scenario_result.scenario.rel_path),
             "scenario_subject": event.scenario_result.scenario.subject,
+            "scenario_namespace": event.scenario_result.scenario.namespace,
 
             "status": event.scenario_result.status.value,
             "started_at": round(started_at * 1000),
