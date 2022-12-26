@@ -29,6 +29,7 @@ class VedroCloudPlugin(Plugin):
         self._project_id = config.project_id
         self._client = client_factory(self._project_id, self._api_url, self._timeout)
         self._report_id = config.report_id
+        self._verbose = config.verbose
         self._launch_id: Union[str, None] = None
         self._results: List[Dict[str, Any]] = []
         self._timings: Dict[str, int] = {}
@@ -39,15 +40,19 @@ class VedroCloudPlugin(Plugin):
         try:
             self._timings = await self._client.get_timings(self._report_id)
         except Exception as e:
-            print(f"Failed to retrieve timings: {e!r}")
+            print(f"-> Failed to retrieve timings: {e!r}")
             self._timings = {}
+        if self._verbose:
+            print("-> Retrieved timings:", len(self._timings), self._report_id)
         return self._timings
 
     async def _post_history(self) -> None:
         try:
             await self._client.post_history(self._results)
         except Exception as e:
-            print(f"Failed to send history: {e!r}")
+            print(f"-> Failed to send history: {e!r}")
+        if self._verbose:
+            print("-> Posted history:", len(self._results))
         self._results = []
 
     def subscribe(self, dispatcher: Dispatcher) -> None:
@@ -156,3 +161,6 @@ class VedroCloud(PluginConfig):
 
     # Report ID
     report_id: Optional[str] = None
+
+    # Verbose mode
+    verbose: bool = False
