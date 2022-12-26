@@ -25,7 +25,7 @@ class VedroCloudClient:
         return body
 
     async def get_timings(self, report_id: Optional[str] = None) -> Dict[str, int]:
-        url = f"{self._api_url}/v0.2/projects/{self._project_id}/scenarios"
+        url = f"{self._api_url}/v0.3/projects/{self._project_id}/scenarios"
         params = {"order_by": "duration"}
         if report_id:
             params["report_id"] = report_id
@@ -33,5 +33,5 @@ class VedroCloudClient:
         return {scenario["hash"]: scenario["median"] for scenario in scenarios}
 
     async def post_history(self, history: List[Dict[str, Any]]) -> None:
-        url = f"{self._api_url}/v0.2/projects/{self._project_id}/history"
+        url = f"{self._api_url}/v0.3/projects/{self._project_id}/history"
         await self._do_request("POST", url, json=history)
