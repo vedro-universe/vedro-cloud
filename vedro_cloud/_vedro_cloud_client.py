@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from httpx import AsyncClient
 
@@ -24,11 +24,13 @@ class VedroCloudClient:
                     f"Invalid response from '{url}': {resp.status_code} {resp.read()!r}")
         return body
 
-    async def get_timings(self) -> Dict[str, int]:
+    async def get_timings(self, report_id: Optional[str] = None) -> Dict[str, int]:
         url = f"{self._api_url}/v0.2/projects/{self._project_id}/scenarios"
         params = {"order_by": "duration"}
+        if report_id:
+            params["report_id"] = report_id
         scenarios = await self._do_request("GET", url, params=params)
-        return {scenario["scenario_hash"]: scenario["median"] for scenario in scenarios}
+        return {scenario["hash"]: scenario["median"] for scenario in scenarios}
 
     async def post_history(self, history: List[Dict[str, Any]]) -> None:
         url = f"{self._api_url}/v0.2/projects/{self._project_id}/history"

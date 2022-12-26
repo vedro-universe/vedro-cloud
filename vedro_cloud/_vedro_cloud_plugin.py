@@ -37,7 +37,7 @@ class VedroCloudPlugin(Plugin):
 
     async def _get_timings(self) -> Dict[str, int]:
         try:
-            self._timings = await self._client.get_timings()
+            self._timings = await self._client.get_timings(self._report_id)
         except Exception as e:
             print(f"Failed to retrieve timings: {e!r}")
             self._timings = {}
@@ -65,10 +65,18 @@ class VedroCloudPlugin(Plugin):
 
     def on_arg_parse(self, event: ArgParseEvent) -> None:
         group = event.arg_parser.add_argument_group("Vedro Cloud")
+        group.add_argument("--order-duration", action="store_true", default=False,
+                           help="Set duration scenario order (desc)")
         group.add_argument("--slicer-total", type=int, help="Set total workers")
         group.add_argument("--slicer-index", type=int, help="Set current worker")
 
     def on_arg_parsed(self, event: ArgParsedEvent) -> None:
+        if event.args.order_duration:
+            self._global_config.Registry.ScenarioOrderer.register(
+                lambda: DurationOrderer(self._get_timings),
+                self
+            )
+
         self._total = event.args.slicer_total
         self._index = event.args.slicer_index
         if self._total is not None:
@@ -81,11 +89,8 @@ class VedroCloudPlugin(Plugin):
         if errors := validate_config_params(self._project_id, self._report_id):
             raise ValueError("\n - " + "\n - ".join(errors))
 
-        if (self._total is not None) and (self._report_id is None) and (self._total > 1):
+        if (self._total is not None) and (self._total > 1) and (self._report_id is None):
             raise ValueError("Report ID is required when total workers > 1")
-
-        self._global_config.Registry.ScenarioOrderer.register(
-            lambda: DurationOrderer(self._get_timings), self)
 
     async def on_startup(self, event: StartupEvent) -> None:
         self._launch_id = str(uuid4())
