@@ -27,7 +27,7 @@ class Config(vedro.Config):
 
         class VedroCloud(vedro_cloud.VedroCloud):
             enabled = True
-            api_url = "http://localhost:8080"
+            api_url = "http://localhost:8080"  # Vedro Cloud API
             project_id = "test"
 
         class Slicer(slicer.Slicer):
@@ -40,6 +40,7 @@ Use `docker-compose.yml` from [vedro-universe/vedro-cloud-api](https://github.co
 
 ```shell
 $ docker-compose up -d
+===== Running on http://localhost:8080 =====
 ```
 
 ## Usage
