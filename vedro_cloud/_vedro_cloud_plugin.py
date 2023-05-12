@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Type, TypedDict, Union
 from uuid import uuid4
 
+from rtry import retry
 from vedro.core import ConfigType, Dispatcher, Plugin, PluginConfig
 from vedro.events import (
     ArgParsedEvent,
@@ -38,10 +39,11 @@ class VedroCloudPlugin(Plugin):
 
     async def _get_timings(self) -> Dict[str, int]:
         try:
-            self._timings = await self._client.get_timings(self._report_id)
+            self._timings = await retry(attempts=3,
+                                        delay=1.0)(self._client.get_timings)(self._report_id)
         except Exception as e:
             print(f"-> Failed to retrieve timings: {e!r}")
-            self._timings = {}
+            exit(1)
         if self._verbose:
             print("-> Retrieved timings:", len(self._timings), self._report_id)
         return self._timings
