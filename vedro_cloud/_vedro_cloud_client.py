@@ -14,7 +14,7 @@ class VedroCloudClient:
 
     async def _do_request(self, method: str, url: str, **kwargs: Any) -> Any:
         async with AsyncClient() as client:
-            resp = await client.request(method, url, **kwargs)
+            resp = await client.request(method, url, timeout=self._timeout, **kwargs)
             try:
                 body = resp.json()
             except:  # noqa: E722
