@@ -37,6 +37,7 @@ class VedroCloudPlugin(Plugin):
         self._timings: Dict[str, int] = {}
         self._total: Union[int, None] = None
         self._index: Union[int, None] = None
+        self._force_exit = False
 
     async def _get_timings(self) -> Dict[str, int]:
         try:
@@ -44,7 +45,7 @@ class VedroCloudPlugin(Plugin):
                                         delay=1.0)(self._client.get_timings)(self._report_id)
         except Exception as e:
             print(f"-> Failed to retrieve timings: {e!r}")
-            exit(self._exit_code)
+            self._force_exit = True
         if self._verbose:
             print("-> Retrieved timings:", len(self._timings), self._report_id)
         return self._timings
@@ -101,6 +102,9 @@ class VedroCloudPlugin(Plugin):
             raise ValueError("Report ID is required when total workers > 1")
 
     async def on_startup(self, event: StartupEvent) -> None:
+        if self._force_exit:
+            exit(self._exit_code)
+
         self._launch_id = str(uuid4())
         if (self._total is None) or (self._index is None):
             return
