@@ -31,6 +31,7 @@ class VedroCloudPlugin(Plugin):
         self._client = client_factory(self._project_id, self._api_url, self._timeout)
         self._report_id = config.report_id
         self._verbose = config.verbose
+        self._exit_code = config.exit_code
         self._launch_id: Union[str, None] = None
         self._results: List[Dict[str, Any]] = []
         self._timings: Dict[str, int] = {}
@@ -43,7 +44,7 @@ class VedroCloudPlugin(Plugin):
                                         delay=1.0)(self._client.get_timings)(self._report_id)
         except Exception as e:
             print(f"-> Failed to retrieve timings: {e!r}")
-            exit(1)
+            exit(self._exit_code)
         if self._verbose:
             print("-> Retrieved timings:", len(self._timings), self._report_id)
         return self._timings
@@ -166,3 +167,6 @@ class VedroCloud(PluginConfig):
 
     # Verbose mode
     verbose: bool = False
+
+    # Exit code on failure
+    exit_code: int = 1
