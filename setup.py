@@ -13,7 +13,7 @@ def find_dev_required():
 
 setup(
     name="vedro-cloud",
-    version="0.3.1",
+    version="0.3.2",
     description="Vedro Cloud plugin",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
